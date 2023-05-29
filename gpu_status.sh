@@ -157,37 +157,63 @@ amd(){
 	toolstr=$toolstr"-----------------|-----------------"$'\n'
 }
 
-# TODO: running lpci wakes all the pci devices
-# TODO: find a way to check if gpu is sleeping without waking it up
-lspci=$(lspci -Dvnn | grep -e VGA -e 3D)
+battery(){
+	batName="$2"
+	batModel="$3"
+	
+	# TODO: check if other batteries exists and list them
 
-oIFS="$IFS"; IFS=$'\t\n'
-GPUlist=($lspci)
-gpus=""
-for gpu in "${GPUlist[@]:0}"
+	battery_status=$(</sys/class/power_supply/BAT0/status)
+	battery_power=$(</sys/class/power_supply/BAT0/power_now)
+	
+	txtstr=$txtstr"BAT0: $battery_status"$'\n'
+	
+	toolstr=$toolstr"BAT0:|$batName"$'\n'
+	toolstr=$toolstr"|$batModel"$'\n'
+	toolstr=$toolstr"Status:|$battery_status ($battery_power mW)"$'\n'
+	toolstr=$toolstr"-----------------|-----------------"$'\n'
+}
+
+device_pluggedin=$(</sys/class/power_supply/AC/online)
+
+if [[ $device_pluggedin == "0" ]]
+then
+	battery
+else
+	# TODO: running lpci wakes all the pci devices
+	# TODO: find a way to check if gpu is sleeping without waking it up
+	lspci=$(lspci -Dvnn | grep -e VGA -e 3D)
+
+	oIFS="$IFS"; IFS=$'\t\n'
+	GPUlist=($lspci)
+	gpus=""
+	for gpu in "${GPUlist[@]:0}"
+	do  
 do  
-	IFS=$' '
-	arrIN=(${gpu})
-	pciaddr=${arrIN[0]}
-	gpuName=`echo $gpu | cut -d "]" -f2 | cut -d "[" -f1`
-	gpuName=$''"${gpuName[@]:2}"
-	gpuModel=`echo $gpu | cut -d "[" -f3 | cut -d "]" -f1`
-	gpuVendorId=`echo $gpu | cut -d "[" -f4 | cut -d ":" -f1`
+	do  
+		IFS=$' '
+		arrIN=(${gpu})
+		pciaddr=${arrIN[0]}
+		gpuName=`echo $gpu | cut -d "]" -f2 | cut -d "[" -f1`
+		gpuName=$''"${gpuName[@]:2}"
+		gpuModel=`echo $gpu | cut -d "[" -f3 | cut -d "]" -f1`
+		gpuVendorId=`echo $gpu | cut -d "[" -f4 | cut -d ":" -f1`
 
-	# NVIDIA
-	if [[ $gpuVendorId == '10de' ]]
-	then
-	nvidia "$pciaddr" "$gpuName" "$gpuModel"
-	# INTEL
-	elif [[ $gpuVendorId == '8086' ]]
-	then
-	intel "$pciaddr" "$gpuName" "$gpuModel"
-	# AMD
-	elif [[ $gpuVendorId == '1002' ]]
-	then
-	amd "$pciaddr" "$gpuName" "$gpuModel"
-	fi
-done
+		# NVIDIA
+		if [[ $gpuVendorId == '10de' ]]
+		then
+		nvidia "$pciaddr" "$gpuName" "$gpuModel"
+		# INTEL
+		elif [[ $gpuVendorId == '8086' ]]
+		then
+		intel "$pciaddr" "$gpuName" "$gpuModel"
+		# AMD
+		elif [[ $gpuVendorId == '1002' ]]
+		then
+		amd "$pciaddr" "$gpuName" "$gpuModel"
+		fi
+	done
+fi
 
 #nvidia "0000:01:00.0" "NVIDIA Corporation TU117GLM" "Quadro T2000 Mobile / Max-Q"
 #intel "0000:00:02.0" "Intel Corporation CoffeeLake-H GT2" "UHD Graphics 630"
